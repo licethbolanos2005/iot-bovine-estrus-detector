@@ -1,0 +1,24 @@
+{
+  "project": "Gateway LoRa — Detección de Celo Bovino",
+  "version": "1.0.0",
+  "device_id": "gateway_001",
+  "network": {
+    "wifi_ssid": "PARRA CARDONA",
+    "wifi_password": "JuanParra2005",
+    "ap_ssid": "Gateway_Vacas",
+    "ap_password": "gateway123"
+  },
+  "lora": {
+    "frecuencia": 915.0,
+    "spreading_factor": 7,
+    "bandwidth": 125.0,
+    "coding_rate": 5,
+    "sync_word": 18,
+    "potencia_tx": 14
+  },
+  "alertas": {
+    "temp_max": 39.5,
+    "actividad_max": 12.0,
+    "corriente_max": 150.0
+  }
+}
