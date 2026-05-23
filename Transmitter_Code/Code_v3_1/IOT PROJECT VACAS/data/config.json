@@ -1,0 +1,30 @@
+{
+  "project": "Collar IoT — Deteccion de Celo Bovino",
+  "version": "1.0.0",
+  "device_id": "collar_001",
+  "network": {
+    "wifi_ssid": "Docentes",
+    "wifi_password": "KIZqBsUf8m",
+    "ap_ssid": "Collar_Bovino",
+    "ap_password": "collar123"
+  },
+  "lora": {
+    "frecuencia": 915.0,
+    "spreading_factor": 7,
+    "bandwidth": 125.0,
+    "coding_rate": 5,
+    "sync_word": 18,
+    "potencia_tx": 14
+  },
+  "umbrales": {
+    "actividad_alta": 12.0,
+    "temp_elevada": 39.5,
+    "fsr_monta": 2.0,
+    "ciclos_alerta": 3
+  },
+  "intervalos_ms": {
+    "sensores": 5000,
+    "lora": 5000,
+    "sd": 10000
+  }
+}
