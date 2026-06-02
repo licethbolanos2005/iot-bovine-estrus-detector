@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boviot - Panel de Control</title>
+  <script src="/chart.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #f0f2f5; padding: 16px; }
+    h1 { color: #1a1a2e; font-size: 1.3em; margin-bottom: 4px; }
+    .subtitle { color: #666; font-size: 0.85em; margin-bottom: 16px; }
+    .card { background: white; border-radius: 10px; padding: 16px;
+            margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    h2 { color: #333; font-size: 0.95em; margin-bottom: 12px; }
+
+    /* ── Indicadores grandes ── */
+    .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .kpi { background: #f8f9fa; border-radius: 8px; padding: 12px;
+           text-align: center; border-left: 4px solid #1976d2; }
+    .kpi.alerta  { border-color: #f44336; background: #fff3f3; }
+    .kpi.warning { border-color: #ff9800; background: #fff8f0; }
+    .kpi.ok      { border-color: #4caf50; background: #f3fff3; }
+    .kpi-label { font-size: 10px; color: #888; text-transform: uppercase;
+                 letter-spacing: 0.5px; margin-bottom: 4px; }
+    .kpi-value { font-size: 1.5em; font-weight: bold; color: #1a1a2e; }
+    .kpi-unit  { font-size: 10px; color: #aaa; margin-top: 2px; }
+
+    /* ── Indicadores de estado (celo y monta) ── */
+    .estado-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+                   margin-bottom: 14px; }
+    .estado-card { border-radius: 10px; padding: 16px; text-align: center;
+                   box-shadow: 0 2px 8px rgba(0,0,0,0.08); transition: all 0.5s; }
+    .estado-label { font-size: 11px; text-transform: uppercase;
+                    letter-spacing: 1px; margin-bottom: 8px; font-weight: bold; }
+    .estado-valor { font-size: 1.2em; font-weight: bold; }
+    .estado-dot   { width: 14px; height: 14px; border-radius: 50%;
+                    display: inline-block; margin-right: 6px; vertical-align: middle; }
+
+    /* Colores celo */
+    .celo-0 { background: #e8f5e9; color: #2e7d32; }
+    .celo-1 { background: #fff8e1; color: #f57f17; }
+    .celo-2 { background: #fff3e0; color: #e65100; }
+    .celo-3 { background: #ffebee; color: #b71c1c; }
+    .dot-0  { background: #4caf50; }
+    .dot-1  { background: #ffc107; }
+    .dot-2  { background: #ff9800; }
+    .dot-3  { background: #f44336; box-shadow: 0 0 8px #f44336; }
+
+    /* Monta */
+    .monta-no  { background: #e8f5e9; color: #2e7d32; }
+    .monta-si  { background: #ffebee; color: #b71c1c;
+                 animation: pulsar 1s infinite; }
+    @keyframes pulsar {
+      0%,100% { opacity: 1; } 50% { opacity: 0.6; }
+    }
+
+    /* ── Gráficas ── */
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .chart-card  { background: white; border-radius: 10px; padding: 14px;
+                   box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .chart-card h3 { font-size: 0.85em; color: #555; margin-bottom: 8px; }
+    canvas { max-height: 160px; }
+
+    /* ── Config/OTA ── */
+    textarea { width: 100%; height: 220px; font-family: monospace;
+               font-size: 11px; border: 1px solid #ddd; border-radius: 6px;
+               padding: 8px; resize: vertical; }
+    button { background: #1976d2; color: white; border: none;
+             padding: 8px 16px; border-radius: 6px; cursor: pointer;
+             font-size: 13px; margin-top: 8px; margin-right: 6px; }
+    button:hover { background: #1565c0; }
+    button.danger { background: #d32f2f; }
+    button.danger:hover { background: #b71c1c; }
+    .status { margin-top: 8px; padding: 8px 12px; border-radius: 6px;
+              font-size: 12px; display: none; }
+    .ok  { background: #e8f5e9; color: #2e7d32; display: block; }
+    .err { background: #ffebee; color: #c62828; display: block; }
+    input[type=file] { display: block; margin: 8px 0; font-size: 13px; }
+    progress { width: 100%; height: 18px; margin-top: 6px; }
+
+    .refresh-badge { float: right; font-size: 11px; color: #aaa;
+                     font-weight: normal; margin-top: 2px; }
+    @media(max-width:600px) {
+      .kpi-grid    { grid-template-columns: repeat(2, 1fr); }
+      .charts-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <h1>🐄 Boviot — Panel de Control</h1>
+  <p class="subtitle">Nodo sensor LoRa — monitoreo en tiempo real</p>
+
+  <!-- ── Indicadores de Estado ── -->
+  <div class="estado-grid">
+    <div class="estado-card celo-0" id="cardCelo">
+      <div class="estado-label">Estado de Celo</div>
+      <div class="estado-valor">
+        <span class="estado-dot dot-0" id="dotCelo"></span>
+        <span id="txtCelo">Cargando...</span>
+      </div>
+    </div>
+    <div class="estado-card monta-no" id="cardMonta">
+      <div class="estado-label">Evento de Monta</div>
+      <div class="estado-valor" id="txtMonta">Cargando...</div>
+    </div>
+  </div>
+
+  <!-- ── KPIs actuales ── -->
+  <div class="card">
+    <h2>📊 Valores Actuales
+      <span class="refresh-badge" id="lastUpdate">—</span>
+    </h2>
+    <div class="kpi-grid">
+      <div class="kpi" id="kpiTemp">
+        <div class="kpi-label">Temperatura</div>
+        <div class="kpi-value" id="valTemp">—</div>
+        <div class="kpi-unit">°C</div>
+      </div>
+      <div class="kpi" id="kpiRpm">
+        <div class="kpi-label">Frec. Respiratoria</div>
+        <div class="kpi-value" id="valRpm">—</div>
+        <div class="kpi-unit">resp/min</div>
+      </div>
+      <div class="kpi" id="kpiAccel">
+        <div class="kpi-label">Actividad</div>
+        <div class="kpi-value" id="valAccel">—</div>
+        <div class="kpi-unit">m/s²</div>
+      </div>
+      <div class="kpi" id="kpiFsr">
+        <div class="kpi-label">FSR</div>
+        <div class="kpi-value" id="valFsr">—</div>
+        <div class="kpi-unit">V</div>
+      </div>
+      <div class="kpi" id="kpiCorriente">
+        <div class="kpi-label">Consumo</div>
+        <div class="kpi-value" id="valCorriente">—</div>
+        <div class="kpi-unit">mA</div>
+      </div>
+      <div class="kpi" id="kpiHeap">
+        <div class="kpi-label">Heap libre</div>
+        <div class="kpi-value" id="valHeap">—</div>
+        <div class="kpi-unit">KB</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Gráficas ── -->
+  <div class="charts-grid">
+    <div class="chart-card">
+      <h3>🌡️ Temperatura Corporal (°C)</h3>
+      <canvas id="chartTemp"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>🫁 Frecuencia Respiratoria (resp/min)</h3>
+      <canvas id="chartRpm"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>📈 Actividad — Magnitud Aceleración (m/s²)</h3>
+      <canvas id="chartAccel"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>🔋 Consumo Energético (mA)</h3>
+      <canvas id="chartCorriente"></canvas>
+    </div>
+  </div>
+
+  <!-- ── Configuración ── -->
+  <div class="card" style="margin-top:14px">
+    <h2>⚙️ Configuración (config.json)</h2>
+    <textarea id="cfgEditor">Cargando...</textarea>
+    <br>
+    <button onclick="loadConfig()">📥 Cargar</button>
+    <button onclick="saveConfig()">💾 Guardar</button>
+    <button class="danger" onclick="rebootDevice()">♻ Reiniciar</button>
+    <div id="cfgStatus" class="status"></div>
+  </div>
+
+  <!-- ── OTA ── -->
+  <div class="card">
+    <h2>🔄 Actualización OTA</h2>
+    <input type="file" id="otaFile" accept=".bin">
+    <progress id="otaProgress" value="0" max="100" style="display:none"></progress>
+    <br>
+    <button onclick="uploadOta()">⬆ Subir firmware.bin</button>
+    <div id="otaStatus" class="status"></div>
+  </div>
+  <!-- ── Red y Conectividad ── -->
+  <div class="card" style="margin-top:14px">
+    <h2>📶 Red y Conectividad</h2>
+
+    <!-- MAC -->
+    <div style="margin-bottom:16px">
+      <h3 style="font-size:0.85em;color:#555;margin-bottom:8px">
+        🔌 Dirección MAC
+      </h3>
+      <div class="kpi-grid" style="grid-template-columns:1fr 1fr">
+        <div class="kpi">
+          <div class="kpi-label">MAC Cliente (STA)</div>
+          <div style="font-size:0.85em;font-weight:bold;color:#1a1a2e;
+                      font-family:monospace" id="macSta">—</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">MAC Punto de Acceso (AP)</div>
+          <div style="font-size:0.85em;font-weight:bold;color:#1a1a2e;
+                      font-family:monospace" id="macAp">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info red conectada -->
+    <div style="margin-bottom:16px">
+      <h3 style="font-size:0.85em;color:#555;margin-bottom:8px">
+        📡 Red WiFi Actual
+      </h3>
+      <div id="wifiInfoContainer">
+        <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr)">
+          <div class="kpi">
+            <div class="kpi-label">Red (SSID)</div>
+            <div class="kpi-value" style="font-size:1em" id="wiSsid">—</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Canal</div>
+            <div class="kpi-value" id="wiCanal">—</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Señal</div>
+            <div class="kpi-value" id="wiRssi">—</div>
+            <div class="kpi-unit">dBm</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Calidad</div>
+            <div class="kpi-value" id="wiCalidad">—</div>
+            <div class="kpi-unit">%</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">IP asignada</div>
+            <div class="kpi-value" style="font-size:0.9em" id="wiIp">—</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Gateway</div>
+            <div class="kpi-value" style="font-size:0.9em" id="wiGateway">—</div>
+          </div>
+        </div>
+      </div>
+      <div id="wifiDesconectado" style="display:none;padding:10px;
+           background:#fff3e0;border-radius:6px;color:#e65100;font-size:13px">
+        ⚠️ No conectado a ninguna red — solo modo AP activo
+      </div>
+      <button onclick="loadWifiInfo()" style="margin-top:8px">
+        🔄 Actualizar
+      </button>
+    </div>
+
+    <!-- Scanner -->
+    <div style="margin-bottom:16px">
+      <h3 style="font-size:0.85em;color:#555;margin-bottom:8px">
+        🔍 Redes WiFi Disponibles
+      </h3>
+      <button onclick="scanWifi()" id="btnScan">🔍 Escanear redes</button>
+      <div id="scanStatus" style="font-size:12px;color:#888;
+           margin-top:6px;display:none">Escaneando...</div>
+      <div id="scanResultados" style="margin-top:10px"></div>
+    </div>
+
+    <!-- Conectar a red -->
+    <div>
+      <h3 style="font-size:0.85em;color:#555;margin-bottom:8px">
+        🔗 Conectar a Red WiFi
+      </h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <label style="font-size:12px;color:#666">Nombre de red (SSID)</label>
+          <input type="text" id="newSsid" placeholder="Nombre de la red"
+            style="width:100%;padding:8px;border:1px solid #ddd;
+                   border-radius:6px;font-size:13px;margin-top:4px">
+        </div>
+        <div>
+          <label style="font-size:12px;color:#666">Contraseña</label>
+          <input type="password" id="newPass" placeholder="Contraseña"
+            style="width:100%;padding:8px;border:1px solid #ddd;
+                   border-radius:6px;font-size:13px;margin-top:4px">
+        </div>
+      </div>
+      <button onclick="conectarWifi()" style="margin-top:8px">
+        🔗 Conectar
+      </button>
+      <div id="conectarStatus" class="status"></div>
+    </div>
+  </div>
+<script>
+// ── Configuración ─────────────────────────────────────
+const MAX_PUNTOS  = 40;   // ~2 minutos con intervalo 3s
+const INTERVALO   = 3000; // ms entre lecturas
+
+// ── Umbrales para colores KPI ─────────────────────────
+const UMBRALES = {
+  temp:      { warn: 39.0, alert: 39.5 },
+  rpm:       { warn: 25,   alert: 30   },
+  accel:     { warn: 10,   alert: 12   },
+  corriente: { warn: 100,  alert: 150  }
+};
+
+// ── Historial de datos ────────────────────────────────
+const hist = {
+  labels:    [],
+  temp:      [],
+  rpm:       [],
+  accel:     [],
+  corriente: []
+};
+
+// ── Crear gráfica base ────────────────────────────────
+function crearGrafica(id, label, color, yMin, yMax, lineaAlerta) {
+  const ctx = document.getElementById(id).getContext('2d');
+
+  const plugins = [];
+  const annotations = {};
+
+  const cfg = {
+    type: 'line',
+    data: {
+      labels: hist.labels,
+      datasets: [{
+        label: label,
+        data: [],
+        borderColor: color,
+        backgroundColor: color + '22',
+        borderWidth: 2,
+        pointRadius: 2,
+        tension: 0.3,
+        fill: true
+      }]
+    },
+    options: {
+      responsive: true,
+      animation: false,
+      scales: {
+        x: { ticks: { maxTicksLimit: 6, font: { size: 10 } } },
+        y: {
+          min: yMin,
+          suggestedMax: yMax,
+          ticks: { font: { size: 10 } }
+        }
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: { mode: 'index', intersect: false }
+      }
+    }
+  };
+
+  return new Chart(ctx, cfg);
+}
+
+// ── Inicializar gráficas ──────────────────────────────
+const charts = {
+  temp:      crearGrafica('chartTemp',      'Temperatura',  '#e53935', 24, 42),
+  rpm:       crearGrafica('chartRpm',       'RPM',          '#1e88e5', 0,  40),
+  accel:     crearGrafica('chartAccel',     'Actividad',    '#43a047', 0,  20),
+  corriente: crearGrafica('chartCorriente', 'Corriente mA', '#8e24aa', 0,  200)
+};
+
+// ── Agregar punto a historial ─────────────────────────
+function agregarPunto(datos) {
+  const ahora = new Date();
+  const label = ahora.getHours().toString().padStart(2,'0') + ':' +
+                ahora.getMinutes().toString().padStart(2,'0') + ':' +
+                ahora.getSeconds().toString().padStart(2,'0');
+
+  hist.labels.push(label);
+  hist.temp.push(datos.temperatura);
+  hist.rpm.push(datos.rpm);
+  hist.accel.push(datos.magnitud_accel);
+  hist.corriente.push(datos.corriente_mA);
+
+  // Mantener solo MAX_PUNTOS
+  if (hist.labels.length > MAX_PUNTOS) {
+    hist.labels.shift();
+    hist.temp.shift();
+    hist.rpm.shift();
+    hist.accel.shift();
+    hist.corriente.shift();
+  }
+
+  // Actualizar datasets
+  charts.temp.data.datasets[0].data      = hist.temp;
+  charts.rpm.data.datasets[0].data       = hist.rpm;
+  charts.accel.data.datasets[0].data     = hist.accel;
+  charts.corriente.data.datasets[0].data = hist.corriente;
+
+  charts.temp.update();
+  charts.rpm.update();
+  charts.accel.update();
+  charts.corriente.update();
+}
+
+// ── Colorear KPI según umbral ─────────────────────────
+function colorKpi(id, valor, umbrales) {
+  var el = document.getElementById(id);
+  el.className = 'kpi';
+  if      (valor >= umbrales.alert) el.classList.add('alerta');
+  else if (valor >= umbrales.warn)  el.classList.add('warning');
+  else                               el.classList.add('ok');
+}
+
+// ── Actualizar indicador de celo ──────────────────────
+function actualizarCelo(nivel, texto) {
+  var card = document.getElementById('cardCelo');
+  var dot  = document.getElementById('dotCelo');
+  var txt  = document.getElementById('txtCelo');
+
+  card.className = 'estado-card celo-' + nivel;
+  dot.className  = 'estado-dot dot-'   + nivel;
+  txt.textContent = texto;
+}
+
+// ── Actualizar indicador de monta ─────────────────────
+function actualizarMonta(monta) {
+  var card = document.getElementById('cardMonta');
+  var txt  = document.getElementById('txtMonta');
+
+  if (monta) {
+    card.className  = 'estado-card monta-si';
+    txt.innerHTML   = '🔴 ¡MONTA DETECTADA!';
+  } else {
+    card.className  = 'estado-card monta-no';
+    txt.innerHTML   = '🟢 Sin evento';
+  }
+}
+// ── MAC ───────────────────────────────────────────────
+function loadMac() {
+  fetch('/mac').then(function(r) { return r.json(); })
+  .then(function(d) {
+    document.getElementById('macSta').textContent = d.mac_sta || '—';
+    document.getElementById('macAp').textContent  = d.mac_ap  || '—';
+  }).catch(function() {});
+}
+
+// ── Info WiFi ─────────────────────────────────────────
+function loadWifiInfo() {
+  fetch('/wifiinfo').then(function(r) { return r.json(); })
+  .then(function(d) {
+    var container    = document.getElementById('wifiInfoContainer');
+    var desconectado = document.getElementById('wifiDesconectado');
+
+    if (d.conectado) {
+      container.style.display    = 'block';
+      desconectado.style.display = 'none';
+
+      document.getElementById('wiSsid').textContent    = d.ssid    || '—';
+      document.getElementById('wiCanal').textContent   = d.canal   || '—';
+      document.getElementById('wiRssi').textContent    = d.rssi    || '—';
+      document.getElementById('wiIp').textContent      = d.ip      || '—';
+      document.getElementById('wiGateway').textContent = d.gateway || '—';
+
+      var calidad = d.calidad || 0;
+      var elCalidad = document.getElementById('wiCalidad');
+      elCalidad.textContent = calidad;
+      var kpiCalidad = elCalidad.closest('.kpi');
+      if (kpiCalidad) {
+        kpiCalidad.className = 'kpi ' +
+          (calidad >= 60 ? 'ok' : calidad >= 30 ? 'warning' : 'alerta');
+      }
+    } else {
+      container.style.display    = 'none';
+      desconectado.style.display = 'block';
+    }
+  }).catch(function() {});
+}
+
+// ── Scanner WiFi ──────────────────────────────────────
+function scanWifi() {
+  var btn    = document.getElementById('btnScan');
+  var status = document.getElementById('scanStatus');
+  var result = document.getElementById('scanResultados');
+
+  btn.disabled        = true;
+  btn.textContent     = '⏳ Escaneando...';
+  status.style.display = 'block';
+  status.textContent  = 'Buscando redes — puede tardar unos segundos...';
+  result.innerHTML    = '';
+
+  fetch('/scanwifi').then(function(r) { return r.json(); })
+  .then(function(redes) {
+    btn.disabled       = false;
+    btn.textContent    = '🔍 Escanear redes';
+    status.style.display = 'none';
+
+    if (redes.length === 0) {
+      result.innerHTML = '<p style="color:#888;font-size:13px">No se encontraron redes</p>';
+      return;
+    }
+
+    // Ordenar por señal descendente
+    redes.sort(function(a, b) { return b.rssi - a.rssi; });
+
+    var html = '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+    html += '<tr style="background:#f0f2f5">';
+    html += '<th style="padding:6px;text-align:left">Red (SSID)</th>';
+    html += '<th style="padding:6px;text-align:center">Señal</th>';
+    html += '<th style="padding:6px;text-align:center">Canal</th>';
+    html += '<th style="padding:6px;text-align:center">Seguridad</th>';
+    html += '<th style="padding:6px;text-align:center">Acción</th>';
+    html += '</tr>';
+
+    redes.forEach(function(red) {
+      var color = red.calidad >= 60 ? '#4caf50' :
+                  red.calidad >= 30 ? '#ff9800' : '#f44336';
+      var barras = red.calidad >= 75 ? '▂▄▆█' :
+                   red.calidad >= 50 ? '▂▄▆_' :
+                   red.calidad >= 25 ? '▂▄__' : '▂___';
+
+      html += '<tr style="border-bottom:1px solid #eee">';
+      html += '<td style="padding:6px;font-weight:bold">' + red.ssid + '</td>';
+      html += '<td style="padding:6px;text-align:center">';
+      html += '<span style="color:' + color + ';font-family:monospace">' + barras + '</span>';
+      html += '<br><span style="color:#888">' + red.rssi + ' dBm</span>';
+      html += '</td>';
+      html += '<td style="padding:6px;text-align:center">' + red.canal + '</td>';
+      html += '<td style="padding:6px;text-align:center">' + red.seguridad + '</td>';
+      html += '<td style="padding:6px;text-align:center">';
+      html += '<button onclick="seleccionarRed(\'' + red.ssid + '\')" ';
+      html += 'style="padding:4px 8px;font-size:11px;margin:0">Seleccionar</button>';
+      html += '</td>';
+      html += '</tr>';
+    });
+
+    html += '</table>';
+    result.innerHTML = html;
+
+  }).catch(function() {
+    btn.disabled     = false;
+    btn.textContent  = '🔍 Escanear redes';
+    status.textContent = 'Error al escanear';
+  });
+}
+
+// ── Seleccionar red del scanner ───────────────────────
+function seleccionarRed(ssid) {
+  document.getElementById('newSsid').value = ssid;
+  document.getElementById('newPass').value = '';
+  document.getElementById('newPass').focus();
+  document.getElementById('conectarStatus').className = 'status ok';
+  document.getElementById('conectarStatus').textContent =
+    'Red "' + ssid + '" seleccionada — ingresa la contraseña y haz clic en Conectar';
+  document.getElementById('conectarStatus').style.display = 'block';
+}
+
+// ── Conectar a red ────────────────────────────────────
+function conectarWifi() {
+  var ssid = document.getElementById('newSsid').value.trim();
+  var pass = document.getElementById('newPass').value;
+
+  if (!ssid) {
+    showStatus('conectarStatus', 'Ingresa el nombre de la red', false);
+    return;
+  }
+
+  showStatus('conectarStatus', 'Conectando a "' + ssid + '"... espera 10 segundos', true);
+
+  fetch('/conectarwifi', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ssid: ssid, password: pass })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (d.status === 'ok') {
+      showStatus('conectarStatus',
+        '✅ Conectado correctamente — IP: ' + d.ip +
+        ' — Credenciales guardadas en config.json', true);
+      loadWifiInfo();
+    } else {
+      showStatus('conectarStatus',
+        '❌ No se pudo conectar a "' + ssid +
+        '" — verifica el nombre y contraseña', false);
+    }
+  })
+  .catch(function() {
+    showStatus('conectarStatus', 'Error de comunicación', false);
+  });
+}
+// ── Fetch principal ───────────────────────────────────
+function fetchDatos() {
+  fetch('/datos')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+
+      // KPIs
+      document.getElementById('valTemp').textContent      = d.temperatura.toFixed(1);
+      document.getElementById('valRpm').textContent       = d.rpm;
+      document.getElementById('valAccel').textContent     = d.magnitud_accel.toFixed(1);
+      document.getElementById('valFsr').textContent       = d.fsr_voltaje.toFixed(2);
+      document.getElementById('valCorriente').textContent = d.corriente_mA.toFixed(0);
+      document.getElementById('valHeap').textContent      = d.heap_kb;
+
+      // Colores KPI
+      colorKpi('kpiTemp',      d.temperatura,   UMBRALES.temp);
+      colorKpi('kpiRpm',       d.rpm,           UMBRALES.rpm);
+      colorKpi('kpiAccel',     d.magnitud_accel,UMBRALES.accel);
+      colorKpi('kpiCorriente', d.corriente_mA,  UMBRALES.corriente);
+
+      // Estados
+      actualizarCelo(d.nivel_celo, d.nivel_celo_str);
+      actualizarMonta(d.monta);
+
+      // Gráficas
+      agregarPunto(d);
+
+      // Timestamp
+      var ahora = new Date();
+      document.getElementById('lastUpdate').textContent =
+        'Actualizado: ' + ahora.toLocaleTimeString();
+
+    })
+    .catch(function(e) {
+      document.getElementById('lastUpdate').textContent = 'Sin conexión';
+    });
+}
+
+// ── Config handlers ───────────────────────────────────
+function showStatus(id, msg, ok) {
+  var el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'status ' + (ok ? 'ok' : 'err');
+}
+
+function loadConfig() {
+  fetch('/config').then(function(r) { return r.text(); })
+  .then(function(d) {
+    document.getElementById('cfgEditor').value = d;
+    showStatus('cfgStatus', 'Configuración cargada', true);
+  }).catch(function() { showStatus('cfgStatus', 'Error al cargar', false); });
+}
+
+function saveConfig() {
+  var json = document.getElementById('cfgEditor').value;
+  try { JSON.parse(json); } catch(e) {
+    showStatus('cfgStatus', 'JSON inválido: ' + e.message, false);
+    return;
+  }
+  fetch('/config', { method: 'POST',
+    headers: { 'Content-Type': 'application/json' }, body: json })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    showStatus('cfgStatus',
+      d.status === 'ok' ? 'Guardado correctamente' : 'Error', d.status === 'ok');
+  }).catch(function() { showStatus('cfgStatus', 'Error al guardar', false); });
+}
+
+function rebootDevice() {
+  if (!confirm('¿Reiniciar el dispositivo?')) return;
+  fetch('/reboot', { method: 'POST' })
+  .then(function() { showStatus('cfgStatus', 'Reiniciando...', true); });
+}
+
+function uploadOta() {
+  var f = document.getElementById('otaFile').files[0];
+  if (!f) { alert('Selecciona un archivo .bin'); return; }
+  var bar = document.getElementById('otaProgress');
+  bar.style.display = 'block'; bar.value = 0;
+  showStatus('otaStatus', 'Subiendo firmware...', true);
+  var formData = new FormData();
+  formData.append('firmware', f, f.name);
+  var xhr = new XMLHttpRequest();
+  xhr.open('POST', '/ota', true);
+  xhr.upload.onprogress = function(e) {
+    if (e.lengthComputable) {
+      bar.value = (e.loaded / e.total) * 100;
+      showStatus('otaStatus', 'Subiendo ' + bar.value.toFixed(1) + '%', true);
+    }
+  };
+  xhr.onload = function() {
+    showStatus('otaStatus',
+      xhr.status === 200 ? 'OTA completo — reiniciando...' : 'Error OTA', xhr.status === 200);
+  };
+  xhr.send(formData);
+}
+
+// ── Arranque ──────────────────────────────────────────
+fetchDatos();
+loadConfig();
+loadMac();
+loadWifiInfo();
+setInterval(fetchDatos, INTERVALO);
+setInterval(loadWifiInfo, 15000);
+</script>
+</body>
+</html>
