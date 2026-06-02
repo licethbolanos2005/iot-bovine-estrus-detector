@@ -2,9 +2,9 @@
 
 Prototipo IoT basado en tecnología **LoRa** para la detección temprana del celo en bovinos mediante el monitoreo continuo de variables fisiológicas y comportamentales.
 
-> Proyecto de grado — Ingeniería Electrónica  
-> Universidad — Semestre integrador  
-> Autores: Liceth Bolaños et al.
+> Proyecto integrador — Ingeniería Electrónica  
+> Unidad Central del Valle del Cauca - Semestre 8
+> Autores: Liceth Bolaños, Santiago Albarracin, Arlyn Cardozo, Samuel Guevara
 
 ---
 
@@ -23,13 +23,13 @@ iot-bovine-estrus-detector/
 │   └── ...                 # Archivos .kicad_pcb, .kicad_sch, Gerbers
 │
 ├── Box/                    # Diseño de la caja de protección (impresión 3D)
-│   └── ...                 # Archivos .stl / .f3d
+│   └── ...                 # Archivos .stl
 │
 ├── Receiver_Code/          # Firmware del nodo receptor
 │   └── ...                 # Código ESP32 — recepción LoRa, envío a InfluxDB
 │
 ├── Schematic/              # Esquemático electrónico del sistema
-│   └── ...                 # Archivos .kicad_sch / PDF exportado
+│   └── ...                 # Archivos .kicad_sch
 │
 ├── Transmitter_Code/       # Firmware del nodo transmisor
 │   └── ...                 # Código ESP32 — sensores, LoRa, MicroSD, RTC, Web server
