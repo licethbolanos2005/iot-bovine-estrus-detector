@@ -4,6 +4,7 @@ Prototipo IoT basado en tecnología **LoRa** para la detección temprana del cel
 
 > Proyecto integrador — Ingeniería Electrónica  
 > Unidad Central del Valle del Cauca - Semestre 8
+>
 > Autores: Liceth Bolaños, Santiago Albarracin, Arlyn Cardozo, Samuel Guevara
 
 ---
