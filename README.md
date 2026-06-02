@@ -23,7 +23,7 @@ iot-bovine-estrus-detector/
 │   └── ...                 # Archivos .kicad_pcb, .kicad_sch, Gerbers
 │
 ├── Box/                    # Diseño de la caja de protección (impresión 3D)
-│   └── ...                 # Archivos .stl
+│   └── ...                 # Archivos .ipt
 │
 ├── Receiver_Code/          # Firmware del nodo receptor
 │   └── ...                 # Código ESP32 — recepción LoRa, envío a InfluxDB
